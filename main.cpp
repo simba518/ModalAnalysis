@@ -42,8 +42,9 @@ bool loadMat(SparseMatrix<double> &M, const string file, const bool check_sym=tr
 	int r,c;
 	double v;
     inf >> r >> c >> v;
-	data.push_back(Tri(r,c,v));
-    if( inf.eof() )
+	if (!inf.fail())
+	  data.push_back(Tri(r,c,v));
+	if( inf.eof() || inf.fail())
 	  break;
   }
   timer.stop("time for load data: ");
