@@ -11,6 +11,10 @@
 # ./bin/modal_analysis ./data/bunny_0.92_0.100.stiffness  ./data/bunny_0.92_0.100.mass 10 ./data
 # /bunny_0.92_0.100.off
 
-./bin/modal_analysis ./data/Wenping_rockerarm_0.9159_0.2086_Hex.stiffness  ./data/Wenping_rockerarm_0.9159_0.2086_Hex.mass 1 ./data/Wenping_rockerarm_Hex.off
+# ./bin/modal_analysis ./data/Wenping_rockerarm_0.9159_0.2086_Hex.stiffness  ./data/Wenping_rockerarm_0.9159_0.2086_Hex.mass 1 ./data/Wenping_rockerarm_Hex.off
 
 # ./bin/modal_analysis ./data/Wenping_rockerarm_0.9159_0.2086_Tet.stiffness  ./data/Wenping_rockerarm_0.9159_0.2086_Tet.mass 10
+
+./bin/modal_analysis ./data/beam3_tet.off.stvk  ./data/beam3_tet.mass 8 ./data/beam3_tet.off
+
+# ./bin/modal_analysis ./data/beam3_tet.stiffness  ./data/beam3_tet.mass 8

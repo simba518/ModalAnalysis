@@ -3,6 +3,8 @@
 #include <SparseMatrixTools.h>
 #include <AuxTools.h>
 #include <Timer.h>
+#include <MassMatrix.h>
+#include <ElasticForceTetFullStVK.h>
 using namespace std;
 using namespace Eigen;
 using namespace UTILITY;
@@ -87,13 +89,14 @@ void hex2vtk(OS &os,const double *node, size_t node_num,const INT *hex, size_t h
 	os << 12 << "\n";
 }
 
-void saveMeshes(const MatrixXd &U, const string input_mesh){
+// some of the .off file can not be read, as the format is different.
+void saveMeshes(const MatrixXd &U, const string hex_mesh){
     
   TRACE_FUN();
   
   ifstream inf;
-  inf.open(input_mesh);
-  ERROR_EXIT("failed to open file: "<< input_mesh,inf.is_open());
+  inf.open(hex_mesh);
+  ERROR_EXIT("failed to open file: "<< hex_mesh,inf.is_open());
   
   int num_nodes, num_hex;
   string tempt;
@@ -103,14 +106,17 @@ void saveMeshes(const MatrixXd &U, const string input_mesh){
 
   VectorXd nodes(num_nodes*3);
   vector<int> hex(num_hex*8);
+  int tempt_int;
   for (int i = 0; i < num_nodes; ++i){
+	inf >> tempt_int;
+	assert_eq(tempt_int,i+1);
     inf >> nodes[i*3+0];
     inf >> nodes[i*3+1];
     inf >> nodes[i*3+2];
-	inf >> tempt;
   }
   for (int i = 0; i < num_hex; ++i){
-	inf >> tempt;
+	inf >> tempt_int;
+	assert_eq(tempt_int,i+1);
     inf >> hex[i*8+0];
 	inf >> hex[i*8+1];
 	inf >> hex[i*8+2];
@@ -119,9 +125,6 @@ void saveMeshes(const MatrixXd &U, const string input_mesh){
 	inf >> hex[i*8+5];
 	inf >> hex[i*8+6];
 	inf >> hex[i*8+7];
-	inf >> tempt;
-	inf >> tempt;
-	inf >> tempt;
   }
   inf.close();
 
@@ -133,21 +136,93 @@ void saveMeshes(const MatrixXd &U, const string input_mesh){
 
   for (int i = 0; i < disp.cols(); ++i){
 
-	const string fname = input_mesh+"_mode"+TOSTR(i)+".vtk";
+	const string fname = hex_mesh+"_mode"+TOSTR(i)+".vtk";
 	ofstream outf;
 	outf.open(fname);
 	ERROR_EXIT("failed to open file: "<< fname,outf.is_open());
 	
 	assert_eq(nodes.size(), disp.rows());
-	// const VectorXd x = nodes+disp.col(i);
-	VectorXd x = nodes;
-	x[138] += -1941.05;
-	x[139] += 1.84181e-05;
-	x[140] += -5.51654e-05;
-
+	const VectorXd x = nodes+disp.col(i);
 	hex2vtk(outf, &x[0], num_nodes, &hex[0], num_hex);
 	outf.close();
   }
+}
+
+pTetMesh loadTetMesh(const string tet_mesh){
+  
+  ifstream inf;
+  inf.open(tet_mesh);
+  ERROR_EXIT("failed to open file:"<<tet_mesh,inf.is_open());
+  
+  int num_nodes, num_tet;
+  string tempt;
+  inf >> tempt >> num_nodes >> num_tet >> tempt;
+  assert_gt(num_nodes,0);
+  assert_gt(num_tet,0);
+
+  VectorXd nodes(num_nodes*3);
+  vector<int> tet(num_tet*4);
+  int tempt_int;
+  for (int i = 0; i < num_nodes; ++i){
+	inf >> tempt_int;
+	assert_eq(tempt_int,i+1);
+    inf >> nodes[i*3+0];
+    inf >> nodes[i*3+1];
+    inf >> nodes[i*3+2];
+  }
+  for (int i = 0; i < num_tet; ++i){
+	inf >> tempt_int;
+	assert_eq(tempt_int,i+1);
+    inf >> tet[i*4+0]; 	tet[i*4+0] -= 1;
+	inf >> tet[i*4+1];  tet[i*4+1] -= 1;
+	inf >> tet[i*4+2];  tet[i*4+2] -= 1;
+	inf >> tet[i*4+3];  tet[i*4+3] -= 1;
+  }
+  inf.close();
+  
+  pTetMesh tetmesh = pTetMesh(new (TetMesh));
+  tetmesh->reset(nodes, tet);
+  return tetmesh;
+}
+
+void writeMatrix(const SparseMatrix<double> &M, const string filename){
+  ofstream out;
+  out.open(filename);
+  out << M.rows() <<"\t"<< M.cols() <<endl;
+  for (int k=0; k<M.outerSize(); ++k){
+	for (SparseMatrix<double>::InnerIterator it(M,k); it; ++it){
+	  out << it.row() << " "<< it.col() << " "<<it.value() << endl;
+	}
+  }
+  out.close();
+}
+
+void checkMatrix(const SparseMatrix<double> &M, const SparseMatrix<double> &K, 
+				 const string tet_file,const double density=1){
+  
+  pTetMesh tetmesh = loadTetMesh(tet_file);
+  assert(tetmesh);
+  const int elem_num = tetmesh->tets().size();
+  tetmesh->material().reset(1,1,0.45);
+  
+  MassMatrix mass;
+  SparseMatrix<double> M_correct;
+  mass.compute(M_correct, *tetmesh);
+  assert_eq(M_correct.nonZeros(), M.nonZeros());
+  cout<< "M_correct.norm() = " << M_correct.norm() << endl;
+  cout<< "(M-M0).norm() = " << (M - M_correct).norm() << endl;
+
+  ElasticForceTetFullStVK elas(tetmesh);
+  elas.prepare();
+  VectorXd x0;
+  tetmesh->nodes(x0);
+  const SparseMatrix<double> K_correct = elas.K(x0)*(-1.0f);
+  writeMatrix(K_correct,tet_file+".stvk");
+
+  assert_eq(K_correct.nonZeros(), K.nonZeros());
+  cout<< "K_correct.norm() = " << K_correct.norm() << endl;
+  cout<< "(K-K0).norm() = " << (K - K_correct).norm() << endl;
+
 }
 
 int main(int argc, char *argv[]){
@@ -164,6 +239,11 @@ int main(int argc, char *argv[]){
   SparseMatrix<double> M_all, K_all;
   bool succ = loadMat(M_all, m_file);    ERROR_EXIT("failed to load: "<<m_file, succ);
   succ = loadMat(K_all, k_file);         ERROR_EXIT("failed to load: "<<k_file, succ);
+
+  { // checking
+	// assert_ge(argc,5);
+	// checkMatrix(M_all, K_all, argv[4]);
+  }
 
   // extract constrained nodes
   SparseMatrix<double> P = eye<double>(M_all.rows(), M_all.cols());
