@@ -15,6 +15,6 @@
 
 # ./bin/modal_analysis ./data/Wenping_rockerarm_0.9159_0.2086_Tet.stiffness  ./data/Wenping_rockerarm_0.9159_0.2086_Tet.mass 10
 
-./bin/modal_analysis ./data/beam3_tet.off.stvk  ./data/beam3_tet.mass 8 ./data/beam3_tet.off
+./bin/modal_analysis ./data/beam3_hex.stiffness  ./data/beam3_hex.mass 20 ./data/beam3_hex.off 8
 
-# ./bin/modal_analysis ./data/beam3_tet.stiffness  ./data/beam3_tet.mass 8
+./bin/modal_analysis ./data/beam3_tet.stiffness  ./data/beam3_tet.mass 20 ./data/beam3_tet.off 4
