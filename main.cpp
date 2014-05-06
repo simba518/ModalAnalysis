@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <MatrixIO.h>
 #include <SparseGenEigenSolver.h>
 #include <SparseMatrixTools.h>
@@ -263,7 +264,7 @@ int main(int argc, char *argv[]){
   for (int r = 0; r < W.rows(); ++r){
   	outf << endl;
   	for (int c = 0; c < W.cols(); ++c){
-  	  outf << W(r,c);
+  	  outf<< setprecision(20) << W(r,c);
   	  if (c != W.cols()-1)
   		outf << " ";
   	}
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]){
   outf.open(lambda_f);
   ERROR_LOG_COND("failed to open file: "<< lambda_f<< "for saving lambda.", outf.is_open());
   outf << lambda.size();
-  for (int i = 0; i < lambda.size(); ++i) outf << endl << lambda[i];
+  for (int i = 0; i < lambda.size(); ++i) outf<<setprecision(20)<< endl << lambda[i];
   outf.close();
 
   if (argc > 5){
