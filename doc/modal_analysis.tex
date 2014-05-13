@@ -1,0 +1,40 @@
+\documentclass[9pt,twocolumn]{extarticle}
+
+\usepackage[hmargin=0.5in,tmargin=0.5in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{subfigure}
+
+\usepackage{cleveref}
+\usepackage{color}
+\newcommand{\TODO}[1]{\textcolor{red}{#1}}
+
+\newcommand{\FPP}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\argmin}{\operatornamewithlimits{arg\ min}}
+\author{Siwang Li}
+
+\title{Modal Analysis}
+
+%% document begin here
+\begin{document}
+\maketitle
+
+\setlength{\parskip}{0.5ex}
+
+\section{Introduction}
+Given a stiffness matrix $K$ and mass matrix $M$, we solve for the following general eigenvalue problem for eigenvectors $w$ and eigenvalues $\lambda$
+\begin{equation} \label{ma}
+  Kw = \lambda Mw
+\end{equation}
+Usually we truncate the first few eigenvalues $\Lambda = (\cdots, \lambda_i, \cdots)$ and eigenvectors $W = (\cdots, w_i, \cdots)$.
+
+\section{Hex-mesh and Tet-mesh}
+We can use either Tet-mesh or Hex-mesh to generate $K$ and $M$. And for the same number of nodes, we will obtain different $K, M$ by using different type of mesh, and thus different $\Lambda$ and $W$. We define the modal analysis introduced above as a function: 
+\begin{equation} \label{ma-f}
+  (\Lambda,W) = F_{ma}(M,N)
+\end{equation}
+where $M$ is the type of mesh which can be either Hex-mesh or Tet-mesh, while $N$ is the number of nodes. \TODO{Suppose that, when we increase $N$, the resulting $\Lambda$ will monotonic decrease, and $(\Lambda,W)$ will convergent to some ground truth values (But why?).} 
+
+
+\end{document}

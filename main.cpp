@@ -6,6 +6,7 @@
 #include <Timer.h>
 #include <MassMatrix.h>
 #include <ElasticForceTetFullStVK.h>
+#include <EigenSolver.h>
 using namespace std;
 using namespace Eigen;
 using namespace UTILITY;
@@ -197,10 +198,11 @@ void checkMatrix(const SparseMatrix<double> &M, const SparseMatrix<double> &K,
 
 }
 
-int main(int argc, char *argv[]){
+// solve the general eigenvalue problem using aparck
+int generalMA(int argc, char *argv[]){
 
   // check arg
-  ERROR_EXIT("ussage: modal_analysis stiff_matrix_file mass_matrix_file number_of_eigs [input_mesh_file] [4/8] [con_nodes_file]", (4 <= argc));
+  ERROR_EXIT("ussage: modal_analysis stiff_matrix_file mass_matrix_file number_of_eigs [LARGEST/SMALLEST] [input_mesh_file] [4/8] [con_nodes_file]", (4 <= argc));
   const string k_file = argv[1];
   const string m_file = argv[2];
   const int eig_num = atoi(argv[3]);
@@ -214,10 +216,10 @@ int main(int argc, char *argv[]){
 
   // extract constrained nodes
   SparseMatrix<double> P = eye<double>(M_all.rows(), M_all.cols());
-  if (argc > 6){
+  if (argc > 7){
   	vector<int> con_nodes;
-  	succ = loadVec(argv[6], con_nodes, UTILITY::TEXT);
-  	ERROR_LOG_COND("failed to load the constrained nodes: "<<argv[6], succ);
+  	succ = loadVec(argv[7], con_nodes, UTILITY::TEXT);
+  	ERROR_LOG_COND("failed to load the constrained nodes: "<<argv[7], succ);
   	set<int> con_set;
   	for (int i = 0; i < con_nodes.size(); ++i){
   	  assert_ge(con_nodes[i],0);
@@ -243,7 +245,8 @@ int main(int argc, char *argv[]){
   VectorXd lambda;
   Timer timer;
   timer.start();
-  succ = EigenSparseGenEigenSolver::solve(Klower,Mlower,W_sub,lambda,eig_num);
+  const char mode = argc>4&&string("LARGEST")==string(argv[4]) ? 'R':'S';
+  succ = EigenSparseGenEigenSolver::solve(Klower,Mlower,W_sub,lambda,eig_num,mode,"LM");
   timer.stop("time for solving: ");
 
   // scale the basis W
@@ -255,8 +258,8 @@ int main(int argc, char *argv[]){
 
   // save data
   INFO_LOG("saving the data...");
-  const string W_f = k_file+".W";
-  const string lambda_f = k_file +".lambda";
+  const string W_f = k_file+".W"+mode;
+  const string lambda_f = k_file +".lambda"+mode;
   ofstream outf;
   outf.open(W_f);
   ERROR_LOG_COND("failed to open file: "<< W_f<< "for saving W.", outf.is_open());
@@ -278,8 +281,53 @@ int main(int argc, char *argv[]){
   outf.close();
 
   if (argc > 5){
-	const VOL_MESH_TYPE type = atoi(argv[5])==4 ? TET_MESH:HEX_MESH;
-	saveVolMesh(W, string(argv[4]), type); 
+	const VOL_MESH_TYPE type = atoi(argv[6])==4 ? TET_MESH:HEX_MESH;
+	saveVolMesh(W, string(argv[5]), type); 
   }
   return 0;
+}
+
+// compute and save the largest eigenvalue and the corresponding
+// eigvector using self-implemented power method.
+int largestEigenValue(int argc, char *argv[]){
+
+  // check arg
+  ERROR_EXIT("ussage: modal_analysis stiff_matrix_file mass_matrix_file", (3 == argc));
+  const string k_file = argv[1];
+  const string m_file = argv[2];
+
+  // load data
+  INFO_LOG("loading data...");
+  SparseMatrix<double> M_all, K_all;
+  bool succ = loadMat(M_all, m_file);    ERROR_EXIT("failed to load: "<<m_file, succ);
+  succ = loadMat(K_all, k_file);         ERROR_EXIT("failed to load: "<<k_file, succ);
+
+  VectorXd eig_vec;
+  double lambda = -1.0;
+  INFO_LOG("solving for the largest eigenvalue...");
+  Timer timer;
+  timer.start();
+  const int it = EIGEN3EXT::largestGenEigenSym(K_all,M_all,eig_vec,lambda,K_all.rows(),1e-8);
+  timer.stop("time for solving: ");
+  if (it <= 0){
+	ERROR_LOG("failed to solve the problem.");
+	return it;
+  }
+
+  // save data
+  const string lambda_f = k_file +".largest_lambda";
+  INFO_LOG("saving the data to: << " << lambda_f);
+  ofstream outf;
+  outf.open(lambda_f);
+  ERROR_LOG_COND("failed to open file: "<< lambda_f<< "for saving lambda.", outf.is_open());
+  outf << lambda;
+  outf.close();
+  
+  return it;
+}
+
+int main(int argc, char *argv[]){
+  
+  return generalMA(argc, argv);
+  // return largestEigenValue(argc, argv);
 }
